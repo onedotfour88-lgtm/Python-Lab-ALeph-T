@@ -165,39 +165,76 @@ def delete_post(id):
 
 
 # ----------------- 부산 테마여행 공공 데이터 연동 엔드포인트 -----------------
-import requests  # 상단에 이미 없다면 추가
+PUBLIC_API_KEY = (
+    'ALRX9GpugtvHxcIO/iPg1vXIQKi0E6Kk1ns4imt8BLTgdvSlH/AKv+A1GcGUQgzuzqM3Uv1ZGgpG5erOTDcYRQ=='
+)
+PUBLIC_API_URL = (
+    'http://apis.data.go.kr/6260000/RecommendedService/getRecommendedKr'
+)
 
-# ----------------- 공공 데이터 연동 설정 (부산테마여행) -----------------
-PUBLIC_API_KEY = "ALRX9GpugtvHxcIO/iPg1vXIQKi0E6Kk1ns4imt8BLTgdvSlH/AKv+A1GcGUQgzuzqM3Uv1ZGgpG5erOTDcYRQ=="
-PUBLIC_API_URL = "http://apis.data.go.kr/6260000/RecommendedService/getRecommendedKr"
 
-# 1) 외부 공공 API 목록 데이터를 클라이언트에 전달하는 API 라우트 (100건)
+# 두 가지 경로 요청 모두 수용하도록 라우트 복수 설정 + 데이터 배열화 반환
 @app.route('/api/public/posts', methods=['GET'])
+@app.route('/api/public-posts', methods=['GET'])
 def get_public_posts():
+  params = {
+      'serviceKey': PUBLIC_API_KEY,
+      'numOfRows': '1000',
+      'pageNo': '1',
+      'resultType': 'json',
+  }
+  try:
+    response = requests.get(PUBLIC_API_URL, params=params)
+    if response.status_code == 200:
+      data = response.json()
+      # 공공데이터 포털 표준 응답 구조에서 item 배열 안전하게 추출
+      items = data.get('getRecommendedKr', {}).get('item', [])
+      return jsonify(items)
+    else:
+      return (
+          jsonify(
+              {'msg': '공공 API 호출 실패', 'status': response.status_code}
+          ),
+          500,
+      )
+  except Exception as e:
+    return jsonify({'msg': '서버 통신 에러 발생', 'error': str(e)}), 500
+
+
+
+@app.route('/public-posts')
+def public_posts_page():
+  return render_template('public_posts.html')
+
+
+@app.route('/public-posts/<int:uc_seq>')
+def public_post_detail_page(uc_seq):
+  return render_template('public_detail.html', uc_seq=uc_seq)
+
+
+# 특정 공공데이터 상세 정보 조회 API
+@app.route('/api/public/posts/<int:uc_seq>', methods=['GET'])
+@app.route('/api/public-posts/<int:uc_seq>', methods=['GET'])
+def get_public_post_detail(uc_seq):
     params = {
         'serviceKey': PUBLIC_API_KEY,
-        'numOfRows': '100',
+        'numOfRows': '1000',
         'pageNo': '1',
-        'resultType': 'json'
+        'resultType': 'json',
     }
     try:
         response = requests.get(PUBLIC_API_URL, params=params)
         if response.status_code == 200:
-            return response.json()
+            data = response.json()
+            items = data.get('getRecommendedKr', {}).get('item', [])
+            target = next((item for item in items if str(item.get('UC_SEQ')) == str(uc_seq)), None)
+            if target:
+                return jsonify(target)
+            return jsonify({'msg': '해당 데이터를 찾을 수 없습니다.'}), 404
         else:
-            return jsonify({"msg": "공공 API 호출 실패", "status": response.status_code}), 500
+            return jsonify({'msg': '공공 API 호출 실패', 'status': response.status_code}), 500
     except Exception as e:
-        return jsonify({"msg": "서버 통신 에러 발생", "error": str(e)}), 500
-
-# 2) 공공데이터 목록 화면 페이지 라우트
-@app.route('/public-posts')
-def public_posts_page():
-    return render_template('public_posts.html')
-
-# 3) 공공데이터 상세 보기 화면 페이지 라우트 (UC_SEQ 식별자 이용)
-@app.route('/public-posts/<int:uc_seq>')
-def public_post_detail_page(uc_seq):
-    return render_template('public_detail.html', uc_seq=uc_seq)
-
+        return jsonify({'msg': '서버 통신 에러 발생', 'error': str(e)}), 500
+    
 if __name__ == '__main__':
   app.run(debug=True, port=5000)
