@@ -168,7 +168,22 @@ def delete_post(id):
 import requests  # 상단에 이미 없다면 추가
 
 # ----------------- 공공 데이터 연동 설정 (부산테마여행) -----------------
-PUBLIC_API_KEY = "ALRX9GpugtvHxcIO/iPg1vXIQKi0E6Kk1ns4imt8BLTgdvSlH/AKv+A1GcGUQgzuzqM3Uv1ZGgpG5erOTDcYRQ=="
+import os
+from dotenv import load_dotenv
+
+# 같은 폴더의 .env 를 읽어 환경변수로 올려 준다 (이 한 줄이 핵심)
+load_dotenv()
+
+# .env 파일에 정의한 변수 이름으로 키를 가져온다
+PUBLIC_API_KEY = os.environ.get("PUBLIC_API_KEY")
+
+# 키 값 자체는 절대 출력하지 않고 안전하게 확인
+if PUBLIC_API_KEY:
+    print("키 로드됨 — 앞 4자리:", PUBLIC_API_KEY[:4] + "****")
+    # 이후 불러온 key를 활용해 공공데이터 API 요청 로직 작성
+else:
+    print("키 없음 — 더미 실습 진행 또는 설정을 확인하세요.")
+
 PUBLIC_API_URL = "http://apis.data.go.kr/6260000/RecommendedService/getRecommendedKr"
 
 # 1) 외부 공공 API 목록 데이터를 클라이언트에 전달하는 API 라우트 (100건)
